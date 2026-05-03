@@ -38,12 +38,12 @@ const register= async(req,res)=> {
             expiresIn:'7d'
         })
 
-        res.cookie('token',token, {
-            httpOnly:true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite:'strict',
-            maxAge:24*60*1000
-        })
+ res.cookie('token', token, {
+    httpOnly: true,
+    secure: true,        // IMPORTANT for Render HTTPS
+    sameSite: 'none',     // VERY IMPORTANT for frontend-backend different domain
+    maxAge: 7 * 24 * 60 * 60 * 1000
+});
 
         res.status(200).json({message:"You are register succesfully", token: token})
     }catch(err){
@@ -90,14 +90,14 @@ const loginuser= async(req,res)=>{
             expiresIn:'7d'
         })
 
-        res.cookie('token',token, {
-            httpOnly:true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite:'strict',
-            maxAge:7 * 24 * 60 * 60 * 1000
-        })
+      res.cookie('token', token, {
+    httpOnly: true,
+    secure: true,        // IMPORTANT for Render HTTPS
+    sameSite: 'none',     // VERY IMPORTANT for frontend-backend different domain
+    maxAge: 7 * 24 * 60 * 60 * 1000
+});
 
-        console.log(cookie)
+        
         res.status(200).json({message:"You are login succesfully", token: token})
 
     }catch(err){
