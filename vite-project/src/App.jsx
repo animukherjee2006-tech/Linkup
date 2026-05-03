@@ -13,7 +13,7 @@ import Home from './pages/Home';
 import Profile from './pages/Profile';
 import Search from './pages/Search';
 import Settings from './pages/Settings'; 
-import CreatePost from './pages/CreatePost';
+import Createpost from './pages/CreatePost';
 import ChatPage from "./pages/ChatPage";
 import OtherUserProfile from './pages/OtherUserProfile';
 
@@ -35,7 +35,7 @@ function App() {
           <Route path="/mainlayout" element={<Mainlayout />}>
             <Route index element={<Home />} />
             <Route path="home" element={<Home />} />
-            <Route path='create-post' element={<CreatePost />} />
+            <Route path='create-post' element={<Createpost />} />
             <Route path="profile" element={<Profile />} />
             <Route path="search" element={<Search />} />
             <Route path="settings" element={<Settings />} /> 
