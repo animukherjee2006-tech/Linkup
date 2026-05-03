@@ -13,7 +13,7 @@ import Home from './pages/Home';
 import Profile from './pages/Profile';
 import Search from './pages/Search';
 import Settings from './pages/Settings'; 
-import Createpost from './pages/CreatePost';
+import CreatePost from './pages/CreatePost';
 import ChatPage from "./pages/ChatPage";
 import OtherUserProfile from './pages/OtherUserProfile';
 
