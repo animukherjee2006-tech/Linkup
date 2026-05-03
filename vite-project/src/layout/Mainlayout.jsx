@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import TopNav from '../components/TopNav';
+import Topnav from '../components/TopNav';
 
 const Mainlayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -42,7 +42,7 @@ const Mainlayout = () => {
           </button>
           
           <div className="flex-1">
-            <TopNav />
+            <Topnav />
           </div>
         </header>
 
