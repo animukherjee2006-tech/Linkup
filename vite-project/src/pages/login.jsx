@@ -18,7 +18,7 @@ function Login() {
     seterror("");
 
     try {
-      const res = await Axios.post("http://localhost:3000/api/auth/loginuser", formdata, {
+      const res = await Axios.post("https://linkup-144b.onrender.com/api/auth/loginuser", formdata, {
         withCredentials: true // MANDATORY: This lets the browser store the cookie
       });
 

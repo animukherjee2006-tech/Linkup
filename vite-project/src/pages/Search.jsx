@@ -24,7 +24,7 @@ const Search = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:3000/api/posts/searchposts?query=${searchTerm}`, {
+      const res = await axios.get(`https://linkup-144b.onrender.com/api/posts/searchposts?query=${searchTerm}`, {
         withCredentials: true
       });
       setResults(res.data.posts);

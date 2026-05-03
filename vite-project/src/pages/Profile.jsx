@@ -20,20 +20,20 @@ const UserProfile = () => {
     const fetchAllData = async () => {
       try {
         // Fetch Profile Info
-        const profileRes = await axios.get('http://localhost:3000/api/userpost/seeprofile', { 
+        const profileRes = await axios.get('https://linkup-144b.onrender.com/api/userpost/seeprofile', { 
           withCredentials: true 
         });
         const profileUser = profileRes.data.userprofile;
         setUser(profileUser);
 
         // Fetch User posts
-        const postsRes = await axios.get('http://localhost:3000/api/userpost/seeuserposts', { 
+        const postsRes = await axios.get('https://linkup-144b.onrender.com/api/userpost/seeuserposts', { 
           withCredentials: true 
         });
         setUserPosts(postsRes.data.userposts);
 
         // Fetch Follow Stats & Status from your follow route
-        const followRes = await axios.get('http://localhost:3000/api/followroute/seefollow', { 
+        const followRes = await axios.get('https://linkup-144b.onrender.com/api/followroute/seefollow', { 
           withCredentials: true 
         });
         
@@ -64,7 +64,7 @@ const UserProfile = () => {
     setFollowLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:3000/api/followroute/follow', 
+      const response = await axios.post('https://linkup-144b.onrender.com/api/followroute/follow', 
         { userId: user._id }, 
         { withCredentials: true }
       );

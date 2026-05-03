@@ -21,7 +21,7 @@ const OtherUserProfile = () => {
       try {
         setLoading(true);
         
-        const profileRes = await axios.get(`http://localhost:3000/api/userpost/seeanyprofile/${id}`, { 
+        const profileRes = await axios.get(`https://linkup-144b.onrender.com/api/userpost/seeanyprofile/${id}`, { 
           withCredentials: true 
         });
         
@@ -29,7 +29,7 @@ const OtherUserProfile = () => {
         setUserPosts(profileRes.data.userPosts || []);
 
         
-        const followRes =await axios.get('http://localhost:3000/api/followroute/seefollow', { 
+        const followRes =await axios.get('https://linkup-144b.onrender.com/api/followroute/seefollow', { 
           withCredentials: true 
         });
         
@@ -54,7 +54,7 @@ const OtherUserProfile = () => {
     setFollowLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:3000/api/followroute/follow', 
+      const response = await axios.post('https://linkup-144b.onrender.com/api/followroute/follow', 
         { userId: user._id }, 
         { withCredentials: true }
       );

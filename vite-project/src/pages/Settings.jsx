@@ -14,7 +14,7 @@ function Settings() {
     setError("");
 
     try {
-      const res = await Axios.post("http://localhost:3000/api/auth/logoutuser");
+      const res = await Axios.post("https://linkup-144b.onrender.com/api/auth/logoutuser");
 
       
       localStorage.removeItem('isLoggedIn');

@@ -26,7 +26,7 @@ const CreatePost = () => {
     }
 
     try {
-      const response = await axios.post("http://localhost:3000/api/posts/makepost", formData, {
+      const response = await axios.post("https://linkup-144b.onrender.com/api/posts/makepost", formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         withCredentials: true 
       })

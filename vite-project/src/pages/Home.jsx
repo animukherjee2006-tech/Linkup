@@ -11,11 +11,11 @@ function Home() {
     const fetchHomeData = async () => {
       try {
         // Fetch Posts
-        const postsRes = await axios.get("http://localhost:3000/api/posts/seeposts", { withCredentials: true });
+        const postsRes = await axios.get("https://linkup-144b.onrender.com/api/posts/seeposts", { withCredentials: true });
         setPosts(postsRes.data.postss || []);
 
         // Fetch Following List 
-        const followRes = await axios.get("http://localhost:3000/api/followroute/seefollow", { withCredentials: true });
+        const followRes = await axios.get("https://linkup-144b.onrender.com/api/followroute/seefollow", { withCredentials: true });
         
         // the users who are already in following list
         setFollowingList(followRes.data.followingIds || []);
@@ -32,7 +32,7 @@ function Home() {
   const handleFollowToggle = async (targetUserId, targetUsername) => {
     setFollowLoading(targetUserId);
     try {
-      const response = await axios.post('http://localhost:3000/api/followroute/follow', 
+      const response = await axios.post('https://linkup-144b.onrender.com/api/followroute/follow', 
         { userId: targetUserId }, 
         { withCredentials: true }
       );

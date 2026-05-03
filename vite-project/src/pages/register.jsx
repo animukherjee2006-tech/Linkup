@@ -31,7 +31,7 @@ const handleSubmit = async (e) => {
   e.preventDefault();
   setloading(true);
   try {
-    const res = await Axios.post("http://localhost:3000/api/auth/register", formdata, {
+    const res = await Axios.post("https://linkup-144b.onrender.com/api/auth/register", formdata, {
       withCredentials: true 
     });
 

@@ -24,8 +24,8 @@ const ChatPage = () => {
     const fetchInitialData = async () => {
       try {
         const [profileRes, followRes] = await Promise.all([
-          axios.get('http://localhost:3000/api/userpost/seeprofile', { withCredentials: true }),
-          axios.get('http://localhost:3000/api/followroute/seefollow', { withCredentials: true })
+          axios.get('https://linkup-144b.onrender.com/api/userpost/seeprofile', { withCredentials: true }),
+          axios.get('https://linkup-144b.onrender.com/api/followroute/seefollow', { withCredentials: true })
         ]);
         const user = profileRes.data.userprofile;
         setCurrentUser(user);
