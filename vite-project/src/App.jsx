@@ -35,7 +35,7 @@ function App() {
           <Route path="/mainlayout" element={<Mainlayout />}>
             <Route index element={<Home />} />
             <Route path="home" element={<Home />} />
-            <Route path='create-post' element={<Createpost />} />
+            <Route path='create-post' element={<CreatePost />} />
             <Route path="profile" element={<Profile />} />
             <Route path="search" element={<Search />} />
             <Route path="settings" element={<Settings />} /> 
