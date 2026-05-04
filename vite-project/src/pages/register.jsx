@@ -30,15 +30,28 @@ function Register() {
 const handleSubmit = async (e) => {
   e.preventDefault();
   setloading(true);
+  seterror("");
+
   try {
     const res = await Axios.post("https://linkup-144b.onrender.com/api/auth/register", formdata, {
       withCredentials: true 
     });
 
-    // Flag for ProtectedRoute
-    localStorage.setItem("isLoggedIn", "true");
-    alert("You are successfully registered");
-    navigate('/mainlayout');
+    // Grab the token from the response
+    const token = res.data.token;
+
+    if (token) {
+      // Save both the flag and the actual token
+      localStorage.setItem("token", token);
+      localStorage.setItem("isLoggedIn", "true");
+
+      alert("You are successfully registered");
+      navigate('/mainlayout');
+    } else {
+      // Fallback if your backend only registers without logging in
+      alert("Registration successful! Please log in.");
+      navigate('/login');
+    }
   } catch (err) {
     seterror(err.response?.data?.message || "Registration Failed");
   } finally {

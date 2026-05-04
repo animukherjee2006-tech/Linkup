@@ -12,20 +12,28 @@ function Login() {
     setformdata({ ...formdata, [e.target.name]: e.target.value });
   };
 
-  const handlesubmit = async (e) => {
+const handlesubmit = async (e) => {
     e.preventDefault();
     setloading(true);
     seterror("");
 
     try {
       const res = await Axios.post("https://linkup-144b.onrender.com/api/auth/loginuser", formdata, {
-        withCredentials: true // MANDATORY: This lets the browser store the cookie
+        withCredentials: true 
       });
 
-      // Instead of storing the token, store a flag for the UI
-      localStorage.setItem('isLoggedIn', 'true');
-      alert(res.data.message);
-      navigate('/mainlayout');
+      const token = res.data.token;
+
+      if (token) {
+
+        localStorage.setItem('token', token);
+        localStorage.setItem('isLoggedIn', 'true');
+        
+        alert(res.data.message);
+        navigate('/mainlayout');
+      } else {
+        seterror("No token received from server");
+      }
     } catch (err) {
       seterror(err.response?.data?.message || "Login Failed");
     } finally {
