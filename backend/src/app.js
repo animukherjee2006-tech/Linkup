@@ -13,6 +13,7 @@ const app= express();
 app.use(express.json())
 app.use(cookieparser())
 app.set('trust proxy', 1);
+
 app.use(cors({
     origin: 'https://linkup-1-frontend.onrender.com', // Frontend URL
     credentials: true,               
