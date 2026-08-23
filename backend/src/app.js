@@ -8,14 +8,17 @@ const chatroutes= require('../src/routes/chat.routes')
 const cookieparser= require('cookie-parser')
 const cors= require('cors')
 const app= express();
-
+const allowedOrigins = [
+    'http://localhost:5173',
+    'https://linkup-1-frontend.onrender.com'
+];
 
 app.use(express.json())
 app.use(cookieparser())
 app.set('trust proxy', 1);
 
 app.use(cors({
-    origin: 'https://linkup-1-frontend.onrender.com', // Frontend URL
+    origin: allowedOrigins, // Frontend URL
     credentials: true,               
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']

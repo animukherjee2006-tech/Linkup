@@ -112,9 +112,8 @@ const loginuser= async(req,res)=>{
 const logout= async(req,res)=>{
    res.clearCookie('token', {
        httpOnly: true,
-       secure: process.env.NODE_ENV === 'production',
+       secure: true,
        sameSite: 'none'
    })
-   res.status(200).json({message:"You are logout succesfully"})
 }
 module.exports= {register,loginuser,logout}

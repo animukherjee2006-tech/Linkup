@@ -14,10 +14,14 @@ function Settings() {
     setError("");
 
     try {
-      const res = await Axios.post("https://linkup-144b.onrender.com/api/auth/logoutuser");
-
-      
-      localStorage.removeItem('isLoggedIn');
+      const token = localStorage.getItem('token');
+    const res = await Axios.post(
+    "https://linkup-144b.onrender.com/api/auth/logoutuser",
+     {},
+    { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
+   );
+localStorage.removeItem('isLoggedIn');
+localStorage.removeItem('token');
       
       alert(res.data.message || "Logged out successfully");
       navigate('/');

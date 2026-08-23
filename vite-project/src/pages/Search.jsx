@@ -24,9 +24,11 @@ const Search = () => {
   const handleSearch = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`https://linkup-144b.onrender.com/api/posts/searchposts?query=${searchTerm}`, {
-        withCredentials: true
-      });
+     const token = localStorage.getItem('token');
+     const res = await axios.get(
+  `https://linkup-144b.onrender.com/api/posts/searchposts?query=${searchTerm}`,
+  { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
+);
       setResults(res.data.posts);
     } catch (err) {
       console.error("Search failed", err);

@@ -26,10 +26,16 @@ const CreatePost = () => {
     }
 
     try {
-      const response = await axios.post("https://linkup-144b.onrender.com/api/posts/makepost", formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        withCredentials: true 
-      })
+     const token = localStorage.getItem('token');
+
+     const response = await axios.post(
+  "https://linkup-144b.onrender.com/api/posts/makepost",
+  formData,
+  {
+    headers: { Authorization: `Bearer ${token}` },
+    withCredentials: true
+  }
+);
 
       if (response.status === 201 || response.status === 200) {
         alert("Success: Post Created!")
