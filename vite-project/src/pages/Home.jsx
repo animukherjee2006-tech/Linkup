@@ -94,79 +94,77 @@ function Home() {
   // CHECK LIKED STATUS
   // --------------------------------------------------
 
-const loadLikedStatus = async (fetchedPosts) => {
+  const loadLikedStatus = async (fetchedPosts) => {
     if (!fetchedPosts || fetchedPosts.length === 0) {
-        return;
+      return;
     }
 
     try {
-        const config = getConfig();
+      const config = getConfig();
 
-        const results = await Promise.all(
-            fetchedPosts.map(async (post) => {
-                try {
-                    const response = await axios.get(
-                        `${API}/api/likeroute/checklike`,
-                        {
-                            params: {
-                                postId: post._id
-                            },
-                            ...config
-                        }
-                    );
+      const results = await Promise.all(
+        fetchedPosts.map(async (post) => {
+          try {
+            const response = await axios.get(
+              `${API}/api/likeroute/checklike`,
+              {
+                params: {
+                  postId: post._id,
+                },
+                ...config,
+              }
+            );
 
-                    console.log(
-                        "Post:",
-                        post._id,
-                        "Liked:",
-                        response.data?.liked
-                    );
+            console.log(
+              "Post:",
+              post._id,
+              "Liked:",
+              response.data?.liked
+            );
 
-                    return {
-                        postId: post._id,
-                        liked: response.data?.liked === true
-                    };
+            return {
+              postId: post._id,
+              liked: response.data?.liked === true,
+            };
+          } catch (error) {
+            console.error(
+              "Check like error:",
+              error.response?.data || error.message
+            );
 
-                } catch (error) {
-                    console.error(
-                        "Check like error:",
-                        error.response?.data || error.message
-                    );
+            return {
+              postId: post._id,
+              liked: false,
+            };
+          }
+        })
+      );
 
-                    return {
-                        postId: post._id,
-                        liked: false
-                    };
-                }
-            })
-        );
+      setPosts((currentPosts) =>
+        currentPosts.map((post) => {
+          const result = results.find(
+            (item) =>
+              String(item.postId) ===
+              String(post._id)
+          );
 
-        setPosts((currentPosts) =>
-            currentPosts.map((post) => {
-                const result = results.find(
-                    (item) =>
-                        String(item.postId) ===
-                        String(post._id)
-                );
+          if (!result) {
+            return post;
+          }
 
-                if (!result) {
-                    return post;
-                }
-
-                return {
-                    ...post,
-                    isLiked: result.liked
-                };
-            })
-        );
-
+          return {
+            ...post,
+            isLiked: result.liked,
+          };
+        })
+      );
     } catch (error) {
-        console.error(
-            "Load liked status error:",
-            error
-        );
+      console.error(
+        "Load liked status error:",
+        error
+      );
     }
-};
+  };
 
   // --------------------------------------------------
   // FOLLOW / UNFOLLOW
@@ -192,13 +190,15 @@ const loadLikedStatus = async (fetchedPosts) => {
       if (message.includes("unfollow")) {
         setFollowingList((prev) =>
           prev.filter(
-            (id) => String(id) !== String(userId)
+            (id) =>
+              String(id) !== String(userId)
           )
         );
       } else {
         setFollowingList((prev) => {
           const alreadyFollowing = prev.some(
-            (id) => String(id) === String(userId)
+            (id) =>
+              String(id) === String(userId)
           );
 
           if (alreadyFollowing) {
@@ -222,83 +222,114 @@ const loadLikedStatus = async (fetchedPosts) => {
   // LIKE / UNLIKE
   // --------------------------------------------------
 
-const handleLike = async (postId) => {
-    if (!postId || likeLoading === postId) return;
+  const handleLike = async (postId) => {
+    if (!postId || likeLoading === postId) {
+      return;
+    }
 
     const selectedPost = posts.find(
-        (post) => post._id === postId
+      (post) => post._id === postId
     );
 
     if (!selectedPost) return;
 
-    const oldLiked = selectedPost.isLiked === true;
+    const oldLiked =
+      selectedPost.isLiked === true;
+
+    const oldLikeCount =
+      selectedPost.likeCount ??
+      selectedPost.likesCount ??
+      0;
 
     try {
-        setLikeLoading(postId);
+      setLikeLoading(postId);
 
-        // Optimistic UI
-        setPosts((prevPosts) =>
-            prevPosts.map((post) => {
-                if (post._id !== postId) {
-                    return post;
-                }
+      // ---------------------------------------------
+      // OPTIMISTIC UI
+      // ---------------------------------------------
 
-                return {
-                    ...post,
-                    isLiked: !oldLiked
-                };
-            })
-        );
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => {
+          if (post._id !== postId) {
+            return post;
+          }
 
-        const response = await axios.post(
-            `${API}/api/likeroute/getlike`,
-            {
-                postId
-            },
-            getConfig()
-        );
+          return {
+            ...post,
+            isLiked: !oldLiked,
 
-        const { liked, count } = response.data;
+            // Immediately update count
+            likeCount: oldLiked
+              ? Math.max(0, oldLikeCount - 1)
+              : oldLikeCount + 1,
+          };
+        })
+      );
 
-        // Backend final state
-        setPosts((prevPosts) =>
-            prevPosts.map((post) => {
-                if (post._id !== postId) {
-                    return post;
-                }
+      // ---------------------------------------------
+      // BACKEND
+      // ---------------------------------------------
 
-                return {
-                    ...post,
-                    isLiked: liked,
-                    likeCount: count
-                };
-            })
-        );
+      const response = await axios.post(
+        `${API}/api/likeroute/getlike`,
+        {
+          postId,
+        },
+        getConfig()
+      );
 
+      const {
+        liked,
+        count,
+      } = response.data;
+
+      // ---------------------------------------------
+      // BACKEND FINAL STATE
+      // ---------------------------------------------
+
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => {
+          if (post._id !== postId) {
+            return post;
+          }
+
+          return {
+            ...post,
+            isLiked: liked,
+            likeCount:
+              typeof count === "number"
+                ? count
+                : oldLikeCount,
+          };
+        })
+      );
     } catch (error) {
-        console.error(
-            "Like error:",
-            error.response?.data || error.message
-        );
+      console.error(
+        "Like error:",
+        error.response?.data || error.message
+      );
 
-        // Rollback
-        setPosts((prevPosts) =>
-            prevPosts.map((post) => {
-                if (post._id !== postId) {
-                    return post;
-                }
+      // ---------------------------------------------
+      // ROLLBACK
+      // ---------------------------------------------
 
-                return {
-                    ...post,
-                    isLiked: oldLiked
-                };
-            })
-        );
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => {
+          if (post._id !== postId) {
+            return post;
+          }
 
+          return {
+            ...post,
+            isLiked: oldLiked,
+            likeCount: oldLikeCount,
+          };
+        })
+      );
     } finally {
-        setLikeLoading(null);
+      setLikeLoading(null);
     }
-};
+  };
 
   // --------------------------------------------------
   // OPEN LIKE LIST
@@ -467,6 +498,15 @@ const handleLike = async (postId) => {
                 post.username?.fullname ||
                 username;
 
+              // -----------------------------------------
+              // LIKE COUNT
+              // -----------------------------------------
+
+              const likeCount =
+                post.likeCount ??
+                post.likesCount ??
+                0;
+
               const isFollowing =
                 followingList.some(
                   (id) =>
@@ -490,9 +530,7 @@ const handleLike = async (postId) => {
 
                       <div className="relative flex-shrink-0">
                         <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                          {getInitial(
-                            username
-                          )}
+                          {getInitial(username)}
                         </div>
 
                         <span className="absolute -right-0.5 -bottom-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-[3px] border-white" />
@@ -554,16 +592,12 @@ const handleLike = async (postId) => {
                             />
                           ) : isFollowing ? (
                             <>
-                              <Check
-                                size={14}
-                              />
+                              <Check size={14} />
                               Following
                             </>
                           ) : (
                             <>
-                              <UserPlus
-                                size={14}
-                              />
+                              <UserPlus size={14} />
                               Follow
                             </>
                           )}
@@ -574,9 +608,7 @@ const handleLike = async (postId) => {
                         type="button"
                         className="w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center text-gray-400"
                       >
-                        <MoreHorizontal
-                          size={19}
-                        />
+                        <MoreHorizontal size={19} />
                       </button>
                     </div>
                   </div>
@@ -655,9 +687,7 @@ const handleLike = async (postId) => {
                           }
                           className="text-sm font-semibold text-gray-700 px-2 hover:underline"
                         >
-                          {post.likeCount ||
-                          post.likesCount ||
-                          0}
+                          {likeCount}
                         </button>
 
                         {/* COMMENT */}
@@ -666,9 +696,7 @@ const handleLike = async (postId) => {
                           type="button"
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-indigo-600 transition"
                         >
-                          <MessageCircle
-                            size={21}
-                          />
+                          <MessageCircle size={21} />
                         </button>
 
                         {/* SEND */}
@@ -677,9 +705,7 @@ const handleLike = async (postId) => {
                           type="button"
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-indigo-600 transition"
                         >
-                          <Send
-                            size={20}
-                          />
+                          <Send size={20} />
                         </button>
                       </div>
 
@@ -689,9 +715,7 @@ const handleLike = async (postId) => {
                         type="button"
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-indigo-600 transition"
                       >
-                        <Bookmark
-                          size={20}
-                        />
+                        <Bookmark size={20} />
                       </button>
                     </div>
 
@@ -714,6 +738,7 @@ const handleLike = async (postId) => {
             })}
           </div>
         )}
+
       </div>
 
       {/* LIKE MODAL */}
