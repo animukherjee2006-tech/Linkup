@@ -10,5 +10,6 @@ router.post("/getlike", middleware, like.togglelike)
 router.get("/seelike", middleware, like.seelikes)
 
 router.get("/count", middleware, like.countlikes)
+router.get("/checklike", middleware, like.checklike);
 
 module.exports = router

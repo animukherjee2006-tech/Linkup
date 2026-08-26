@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
   Heart,
@@ -9,281 +9,359 @@ import {
   UserPlus,
   Check,
   Loader2,
-  X,
 } from "lucide-react";
 
+import LikeListModal from "../components/LikeListModal";
+
 function Home() {
+  const API = "https://linkup-144b.onrender.com";
+
   const [posts, setPosts] = useState([]);
   const [followingList, setFollowingList] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(null);
-
-  // LIKE STATES
-  const [likedPosts, setLikedPosts] = useState([]);
-  const [likeCounts, setLikeCounts] = useState({});
-  const [likeUsers, setLikeUsers] = useState({});
   const [likeLoading, setLikeLoading] = useState(null);
 
-  // Long press popup
-  const [showLikeUsers, setShowLikeUsers] = useState(false);
-  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [showLikeModal, setShowLikeModal] = useState(false);
+  const [likeList, setLikeList] = useState([]);
+  const [likeListLoading, setLikeListLoading] = useState(false);
 
-  const longPressTimer = useRef(null);
+  // --------------------------------------------------
+  // AXIOS CONFIG
+  // --------------------------------------------------
+
+  const getConfig = () => {
+    const token = localStorage.getItem("token");
+
+    return {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      withCredentials: true,
+    };
+  };
+
+  // --------------------------------------------------
+  // FETCH POSTS + FOLLOWING
+  // --------------------------------------------------
 
   useEffect(() => {
-    const fetchHomeData = async () => {
-      try {
-        const token = localStorage.getItem("token");
+    fetchHomeData();
+  }, []);
 
-        const config = {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          withCredentials: true,
-        };
+  const fetchHomeData = async () => {
+    try {
+      setLoading(true);
 
-        const [postsRes, followRes] = await Promise.all([
+      const config = getConfig();
+
+      const [postsResponse, followResponse] =
+        await Promise.all([
           axios.get(
-            "https://linkup-144b.onrender.com/api/posts/seeposts",
+            `${API}/api/posts/seeposts`,
             config
           ),
 
           axios.get(
-            "https://linkup-144b.onrender.com/api/followroute/seefollow",
+            `${API}/api/followroute/seefollow`,
             config
           ),
         ]);
 
-        const fetchedPosts = postsRes.data.postss || [];
+      const fetchedPosts =
+        postsResponse.data?.postss || [];
 
-        setPosts(fetchedPosts);
-        setFollowingList(followRes.data.followingIds || []);
+      setPosts(fetchedPosts);
 
-        // Get likes for every post
-        const likeResults = await Promise.all(
-          fetchedPosts.map(async (post) => {
-            try {
-              const response = await axios.get(
-                `https://linkup-144b.onrender.com/api/like/seelike?postId=${post._id}`,
-                config
-              );
+      setFollowingList(
+        followResponse.data?.followingIds || []
+      );
 
-              return {
-                postId: post._id,
-                count: response.data.count || 0,
-                likes: response.data.likes || [],
-              };
-            } catch (error) {
-              console.error("Like fetch error:", error);
+      // Check which posts current user liked
+      await loadLikedStatus(fetchedPosts);
+    } catch (error) {
+      console.error(
+        "Home Fetch Error:",
+        error.response?.data || error.message
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
-              return {
-                postId: post._id,
-                count: 0,
-                likes: [],
-              };
-            }
-          })
+  // --------------------------------------------------
+  // CHECK LIKED STATUS
+  // --------------------------------------------------
+
+const loadLikedStatus = async (fetchedPosts) => {
+    if (!fetchedPosts || fetchedPosts.length === 0) {
+        return;
+    }
+
+    try {
+        const config = getConfig();
+
+        const results = await Promise.all(
+            fetchedPosts.map(async (post) => {
+                try {
+                    const response = await axios.get(
+                        `${API}/api/likeroute/checklike`,
+                        {
+                            params: {
+                                postId: post._id
+                            },
+                            ...config
+                        }
+                    );
+
+                    console.log(
+                        "Post:",
+                        post._id,
+                        "Liked:",
+                        response.data?.liked
+                    );
+
+                    return {
+                        postId: post._id,
+                        liked: response.data?.liked === true
+                    };
+
+                } catch (error) {
+                    console.error(
+                        "Check like error:",
+                        error.response?.data || error.message
+                    );
+
+                    return {
+                        postId: post._id,
+                        liked: false
+                    };
+                }
+            })
         );
 
-        const counts = {};
-        const users = {};
-        const liked = [];
+        setPosts((currentPosts) =>
+            currentPosts.map((post) => {
+                const result = results.find(
+                    (item) =>
+                        String(item.postId) ===
+                        String(post._id)
+                );
 
-        const currentUserId = getCurrentUserId(token);
+                if (!result) {
+                    return post;
+                }
 
-        likeResults.forEach((item) => {
-          counts[item.postId] = item.count;
-          users[item.postId] = item.likes;
+                return {
+                    ...post,
+                    isLiked: result.liked
+                };
+            })
+        );
 
-          const userLiked = item.likes.some((like) => {
-            const likedUserId = like.user?._id || like.user;
-
-            return (
-              likedUserId &&
-              currentUserId &&
-              likedUserId.toString() === currentUserId.toString()
-            );
-          });
-
-          if (userLiked) {
-            liked.push(item.postId);
-          }
-        });
-
-        setLikeCounts(counts);
-        setLikeUsers(users);
-        setLikedPosts(liked);
-      } catch (err) {
-        console.error("Home Fetch Error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchHomeData();
-  }, []);
-
-  // Decode JWT
-  const getCurrentUserId = (token) => {
-    try {
-      if (!token) return null;
-
-      const payload = JSON.parse(atob(token.split(".")[1]));
-
-      return payload._id || payload.id || payload.userId || null;
     } catch (error) {
-      return null;
+        console.error(
+            "Load liked status error:",
+            error
+        );
     }
-  };
+};
 
-  // =========================
-  // LIKE / UNLIKE
-  // =========================
+  // --------------------------------------------------
+  // FOLLOW / UNFOLLOW
+  // --------------------------------------------------
 
-  const handleLike = async (postId) => {
-    if (!postId || likeLoading === postId) return;
-
-    setLikeLoading(postId);
+  const handleFollowToggle = async (userId) => {
+    if (!userId) return;
 
     try {
-      const token = localStorage.getItem("token");
+      setFollowLoading(userId);
 
       const response = await axios.post(
-        "https://linkup-144b.onrender.com/api/like/getlike",
+        `${API}/api/followroute/follow`,
         {
-          postId,
+          userId,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          withCredentials: true,
-        }
+        getConfig()
       );
 
-      const liked = response.data.liked;
+      const message =
+        response.data?.message?.toLowerCase() || "";
 
-      // Change heart state
-      setLikedPosts((prev) => {
-        if (liked) {
-          return prev.includes(postId)
-            ? prev
-            : [...prev, postId];
-        }
-
-        return prev.filter((id) => id !== postId);
-      });
-
-      // Change count
-      setLikeCounts((prev) => ({
-        ...prev,
-        [postId]: Math.max(
-          0,
-          (prev[postId] || 0) + (liked ? 1 : -1)
-        ),
-      }));
-
-      // If unliked, remove current user from local users list
-      if (!liked) {
-        const currentUserId = getCurrentUserId(token);
-
-        setLikeUsers((prev) => ({
-          ...prev,
-          [postId]: (prev[postId] || []).filter((like) => {
-            const likedUserId = like.user?._id || like.user;
-
-            return (
-              likedUserId?.toString() !==
-              currentUserId?.toString()
-            );
-          }),
-        }));
-      }
-    } catch (error) {
-      console.error("Like error:", error);
-    } finally {
-      setLikeLoading(null);
-    }
-  };
-
-  // =========================
-  // LONG PRESS
-  // =========================
-
-  const startLongPress = (postId) => {
-    longPressTimer.current = setTimeout(() => {
-      setSelectedPostId(postId);
-      setShowLikeUsers(true);
-    }, 600);
-  };
-
-  const cancelLongPress = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  };
-
-  // =========================
-  // FOLLOW
-  // =========================
-
-  const handleFollowToggle = async (targetUserId) => {
-    if (!targetUserId) return;
-
-    setFollowLoading(targetUserId);
-
-    try {
-      const token = localStorage.getItem("token");
-
-      const response = await axios.post(
-        "https://linkup-144b.onrender.com/api/followroute/follow",
-        {
-          userId: targetUserId,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          withCredentials: true,
-        }
-      );
-
-      const message = response.data.message?.toLowerCase() || "";
-
-      if (message.includes("unfollowed")) {
+      if (message.includes("unfollow")) {
         setFollowingList((prev) =>
-          prev.filter((id) => id !== targetUserId)
+          prev.filter(
+            (id) => String(id) !== String(userId)
+          )
         );
       } else {
-        setFollowingList((prev) =>
-          prev.includes(targetUserId)
-            ? prev
-            : [...prev, targetUserId]
-        );
+        setFollowingList((prev) => {
+          const alreadyFollowing = prev.some(
+            (id) => String(id) === String(userId)
+          );
+
+          if (alreadyFollowing) {
+            return prev;
+          }
+
+          return [...prev, userId];
+        });
       }
-    } catch (err) {
-      console.error("Follow error:", err);
+    } catch (error) {
+      console.error(
+        "Follow error:",
+        error.response?.data || error.message
+      );
     } finally {
       setFollowLoading(null);
     }
   };
 
-  const getInitial = (username) =>
-    username?.charAt(0)?.toUpperCase() || "?";
+  // --------------------------------------------------
+  // LIKE / UNLIKE
+  // --------------------------------------------------
+
+const handleLike = async (postId) => {
+    if (!postId || likeLoading === postId) return;
+
+    const selectedPost = posts.find(
+        (post) => post._id === postId
+    );
+
+    if (!selectedPost) return;
+
+    const oldLiked = selectedPost.isLiked === true;
+
+    try {
+        setLikeLoading(postId);
+
+        // Optimistic UI
+        setPosts((prevPosts) =>
+            prevPosts.map((post) => {
+                if (post._id !== postId) {
+                    return post;
+                }
+
+                return {
+                    ...post,
+                    isLiked: !oldLiked
+                };
+            })
+        );
+
+        const response = await axios.post(
+            `${API}/api/likeroute/getlike`,
+            {
+                postId
+            },
+            getConfig()
+        );
+
+        const { liked, count } = response.data;
+
+        // Backend final state
+        setPosts((prevPosts) =>
+            prevPosts.map((post) => {
+                if (post._id !== postId) {
+                    return post;
+                }
+
+                return {
+                    ...post,
+                    isLiked: liked,
+                    likeCount: count
+                };
+            })
+        );
+
+    } catch (error) {
+        console.error(
+            "Like error:",
+            error.response?.data || error.message
+        );
+
+        // Rollback
+        setPosts((prevPosts) =>
+            prevPosts.map((post) => {
+                if (post._id !== postId) {
+                    return post;
+                }
+
+                return {
+                    ...post,
+                    isLiked: oldLiked
+                };
+            })
+        );
+
+    } finally {
+        setLikeLoading(null);
+    }
+};
+
+  // --------------------------------------------------
+  // OPEN LIKE LIST
+  // --------------------------------------------------
+
+  const openLikeList = async (postId) => {
+    if (!postId) return;
+
+    try {
+      setShowLikeModal(true);
+      setLikeListLoading(true);
+      setLikeList([]);
+
+      const response = await axios.get(
+        `${API}/api/likeroute/seelike`,
+        {
+          params: {
+            postId,
+          },
+          ...getConfig(),
+        }
+      );
+
+      setLikeList(
+        response.data?.likes || []
+      );
+    } catch (error) {
+      console.error(
+        "Like list error:",
+        error.response?.data || error.message
+      );
+
+      setLikeList([]);
+    } finally {
+      setLikeListLoading(false);
+    }
+  };
+
+  // --------------------------------------------------
+  // HELPERS
+  // --------------------------------------------------
+
+  const getInitial = (username) => {
+    return (
+      username?.charAt(0)?.toUpperCase() || "?"
+    );
+  };
 
   const formatDate = (date) => {
     if (!date) return "";
 
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
+    return new Date(date).toLocaleDateString(
+      "en-US",
+      {
+        month: "short",
+        day: "numeric",
+      }
+    );
   };
 
-  // =========================
-  // LOADING
-  // =========================
+  // --------------------------------------------------
+  // LOADING SCREEN
+  // --------------------------------------------------
 
   if (loading) {
     return (
@@ -297,7 +375,7 @@ function Home() {
               <div className="p-5 flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-gray-200" />
 
-                <div className="space-y-2 flex-1">
+                <div className="flex-1 space-y-2">
                   <div className="w-32 h-3 bg-gray-200 rounded-full" />
                   <div className="w-20 h-2 bg-gray-100 rounded-full" />
                 </div>
@@ -318,87 +396,128 @@ function Home() {
     );
   }
 
+  // --------------------------------------------------
+  // MAIN
+  // --------------------------------------------------
+
   return (
     <div className="min-h-screen bg-[#f5f6fa]">
       <div className="max-w-xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
 
-        {/* HEADER */}
+        {/* PAGE HEADER */}
+
         <div className="mb-7 px-1">
           <p className="text-xs font-bold text-indigo-600 uppercase tracking-[0.2em]">
             LinkUp
           </p>
 
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight mt-1">
-            Your Feed
-          </h1>
+          <div className="flex items-end justify-between mt-1">
+            <div>
+              <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+                Your Feed
+              </h1>
 
-          <p className="text-sm text-gray-500 mt-1">
-            See what your connections are sharing.
-          </p>
+              <p className="text-sm text-gray-500 mt-1">
+                See what your connections are sharing.
+              </p>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white rounded-full border border-gray-100 shadow-sm">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full" />
+
+              <span className="text-xs font-semibold text-gray-600">
+                Live
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* POSTS */}
+        {/* NO POSTS */}
+
         {posts.length === 0 ? (
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-10 text-center">
-            <MessageCircle
-              size={34}
-              className="mx-auto text-indigo-600"
-            />
+            <div className="w-20 h-20 mx-auto rounded-3xl bg-indigo-50 flex items-center justify-center">
+              <MessageCircle
+                size={34}
+                className="text-indigo-600"
+              />
+            </div>
 
             <h2 className="text-xl font-bold text-gray-900 mt-6">
               Your feed is quiet
             </h2>
 
-            <p className="text-sm text-gray-500 mt-2">
-              Follow more people and their latest posts will show up here.
+            <p className="text-sm text-gray-500 max-w-xs mx-auto mt-2 leading-relaxed">
+              Follow more people and their latest posts
+              will show up here.
             </p>
           </div>
         ) : (
           <div className="space-y-6">
+
             {posts.map((post) => {
-              const userId = post.username?._id;
+              const userId =
+                post.username?._id;
+
               const username =
-                post.username?.username || "user";
+                post.username?.username ||
+                "user";
+
               const fullname =
-                post.username?.fullname || username;
+                post.username?.fullname ||
+                username;
 
               const isFollowing =
-                followingList.includes(userId);
+                followingList.some(
+                  (id) =>
+                    String(id) ===
+                    String(userId)
+                );
 
               const isLiked =
-                likedPosts.includes(post._id);
-
-              const likeCount =
-                likeCounts[post._id] || 0;
-
-              const users =
-                likeUsers[post._id] || [];
+                post.isLiked === true;
 
               return (
                 <article
                   key={post._id}
-                  className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden"
+                  className="bg-white rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden transition-all duration-300 hover:shadow-[0_15px_40px_rgba(0,0,0,0.07)]"
                 >
-                  {/* USER */}
+
+                  {/* USER HEADER */}
+
                   <div className="px-4 sm:px-5 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-bold text-lg">
-                        {getInitial(username)}
+                    <div className="flex items-center gap-3 min-w-0">
+
+                      <div className="relative flex-shrink-0">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                          {getInitial(
+                            username
+                          )}
+                        </div>
+
+                        <span className="absolute -right-0.5 -bottom-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-[3px] border-white" />
                       </div>
 
-                      <div>
-                        <h3 className="font-bold text-gray-900 text-sm">
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-gray-900 text-sm truncate">
                           {fullname}
                         </h3>
 
-                        <div className="flex gap-1.5 text-xs text-gray-500">
-                          <span>@{username}</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs text-gray-500 truncate">
+                            @{username}
+                          </span>
 
                           {post.createdAt && (
                             <>
-                              <span>•</span>
-                              <span>
-                                {formatDate(post.createdAt)}
+                              <span className="text-gray-300">
+                                •
+                              </span>
+
+                              <span className="text-[11px] text-gray-400">
+                                {formatDate(
+                                  post.createdAt
+                                )}
                               </span>
                             </>
                           )}
@@ -406,22 +525,29 @@ function Home() {
                       </div>
                     </div>
 
+                    {/* FOLLOW */}
+
                     <div className="flex items-center gap-1">
                       {userId && (
                         <button
+                          type="button"
                           onClick={() =>
-                            handleFollowToggle(userId)
+                            handleFollowToggle(
+                              userId
+                            )
                           }
                           disabled={
-                            followLoading === userId
+                            followLoading ===
+                            userId
                           }
-                          className={`px-3 py-2 rounded-xl text-xs font-bold ${
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                             isFollowing
-                              ? "bg-gray-100 text-gray-600"
-                              : "bg-indigo-600 text-white"
+                              ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                              : "bg-indigo-600 text-white hover:bg-indigo-700"
                           }`}
                         >
-                          {followLoading === userId ? (
+                          {followLoading ===
+                          userId ? (
                             <Loader2
                               size={14}
                               className="animate-spin"
@@ -430,7 +556,6 @@ function Home() {
                             <>
                               <Check
                                 size={14}
-                                className="inline mr-1"
                               />
                               Following
                             </>
@@ -438,7 +563,6 @@ function Home() {
                             <>
                               <UserPlus
                                 size={14}
-                                className="inline mr-1"
                               />
                               Follow
                             </>
@@ -446,138 +570,144 @@ function Home() {
                         </button>
                       )}
 
-                      <button className="w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center text-gray-400">
-                        <MoreHorizontal size={19} />
+                      <button
+                        type="button"
+                        className="w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center text-gray-400"
+                      >
+                        <MoreHorizontal
+                          size={19}
+                        />
                       </button>
                     </div>
                   </div>
 
-                  {/* IMAGE */}
+                  {/* POST IMAGE */}
+
                   {post.mediaurl && (
                     <div className="bg-gray-100 overflow-hidden">
                       <img
                         src={post.mediaurl}
-                        alt={post.caption || "Post"}
+                        alt={
+                          post.caption ||
+                          "Post"
+                        }
                         className="w-full max-h-[620px] object-cover"
                         loading="lazy"
                       />
                     </div>
                   )}
 
-                  {/* ACTIONS */}
+                  {/* POST CONTENT */}
+
                   <div className="px-4 sm:px-5 pt-4 pb-5">
+
+                    {/* ACTIONS */}
+
                     <div className="flex items-center justify-between">
 
                       <div className="flex items-center gap-1">
 
-                        {/* INSTAGRAM STYLE LIKE */}
-                        <div className="flex flex-col items-start">
+                        {/* LIKE BUTTON */}
 
-                          <button
-                            type="button"
-
-                            onClick={() =>
-                              handleLike(post._id)
-                            }
-
-                            onMouseDown={() =>
-                              startLongPress(post._id)
-                            }
-
-                            onMouseUp={cancelLongPress}
-                            onMouseLeave={cancelLongPress}
-
-                            onTouchStart={() =>
-                              startLongPress(post._id)
-                            }
-
-                            onTouchEnd={cancelLongPress}
-                            onTouchCancel={cancelLongPress}
-
-                            disabled={
-                              likeLoading === post._id
-                            }
-
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-90 ${
-                              isLiked
-                                ? "text-red-500 bg-red-50"
-                                : "text-gray-500 hover:bg-gray-100 hover:text-red-500"
-                            }`}
-                          >
-                            {likeLoading === post._id ? (
-                              <Loader2
-                                size={22}
-                                className="animate-spin"
-                              />
-                            ) : (
-                              <Heart
-                                size={23}
-                                fill={
-                                  isLiked
-                                    ? "currentColor"
-                                    : "none"
-                                }
-                                strokeWidth={
-                                  isLiked ? 2.5 : 2
-                                }
-                              />
-                            )}
-                          </button>
-
-                          {/* COUNT */}
-                          {likeCount > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedPostId(post._id);
-                                setShowLikeUsers(true);
-                              }}
-                              className="text-xs font-bold text-gray-700 mt-1 hover:underline"
-                            >
-                              {likeCount}{" "}
-                              {likeCount === 1
-                                ? "like"
-                                : "likes"}
-                            </button>
-                          )}
-                        </div>
-
-                        {/* COMMENT */}
                         <button
                           type="button"
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-indigo-600"
+                          onClick={() =>
+                            handleLike(
+                              post._id
+                            )
+                          }
+                          disabled={
+                            likeLoading ===
+                            post._id
+                          }
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                            isLiked
+                              ? "text-red-500 bg-red-50"
+                              : "text-gray-500 hover:bg-gray-100 hover:text-red-500"
+                          }`}
                         >
-                          <MessageCircle size={21} />
+                          {likeLoading ===
+                          post._id ? (
+                            <Loader2
+                              size={21}
+                              className="animate-spin"
+                            />
+                          ) : (
+                            <Heart
+                              size={21}
+                              fill={
+                                isLiked
+                                  ? "currentColor"
+                                  : "none"
+                              }
+                            />
+                          )}
                         </button>
 
-                        {/* SHARE */}
+                        {/* LIKE COUNT */}
+
                         <button
                           type="button"
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-indigo-600"
+                          onClick={() =>
+                            openLikeList(
+                              post._id
+                            )
+                          }
+                          className="text-sm font-semibold text-gray-700 px-2 hover:underline"
                         >
-                          <Send size={20} />
+                          {post.likeCount ||
+                          post.likesCount ||
+                          0}
+                        </button>
+
+                        {/* COMMENT */}
+
+                        <button
+                          type="button"
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-indigo-600 transition"
+                        >
+                          <MessageCircle
+                            size={21}
+                          />
+                        </button>
+
+                        {/* SEND */}
+
+                        <button
+                          type="button"
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-indigo-600 transition"
+                        >
+                          <Send
+                            size={20}
+                          />
                         </button>
                       </div>
 
                       {/* BOOKMARK */}
+
                       <button
                         type="button"
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-indigo-600 transition"
                       >
-                        <Bookmark size={20} />
+                        <Bookmark
+                          size={20}
+                        />
                       </button>
                     </div>
 
                     {/* CAPTION */}
-                    <div className="mt-3">
-                      <p className="text-sm text-gray-800 leading-relaxed">
-                        <span className="font-bold text-gray-900 mr-2">
-                          {username}
-                        </span>
 
-                        {post.caption}
-                      </p>
-                    </div>
+                    {post.caption && (
+                      <div className="mt-3">
+                        <p className="text-sm text-gray-800 leading-relaxed">
+                          <span className="font-bold text-gray-900 mr-2">
+                            {username}
+                          </span>
+
+                          {post.caption}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </article>
               );
@@ -586,78 +716,16 @@ function Home() {
         )}
       </div>
 
-      {/* ========================= */}
-      {/* LIKE USERS POPUP */}
-      {/* ========================= */}
+      {/* LIKE MODAL */}
 
-      {showLikeUsers && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center px-4"
-          onClick={() => setShowLikeUsers(false)}
-        >
-          <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* POPUP HEADER */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h2 className="font-bold text-lg text-gray-900">
-                Likes
-              </h2>
-
-              <button
-                onClick={() => setShowLikeUsers(false)}
-                className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
-              >
-                <X size={19} />
-              </button>
-            </div>
-
-            {/* USERS */}
-            <div className="max-h-[400px] overflow-y-auto">
-              {(likeUsers[selectedPostId] || []).length === 0 ? (
-                <div className="py-10 text-center text-gray-500 text-sm">
-                  No likes yet
-                </div>
-              ) : (
-                (likeUsers[selectedPostId] || []).map(
-                  (like) => {
-                    const likedUser = like.user;
-
-                    const name =
-                      likedUser?.fullname ||
-                      likedUser?.name ||
-                      "User";
-
-                    const username =
-                      likedUser?.username || "user";
-
-                    return (
-                      <div
-                        key={like._id}
-                        className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-bold">
-                          {getInitial(username)}
-                        </div>
-
-                        <div>
-                          <p className="font-semibold text-gray-900 text-sm">
-                            {name}
-                          </p>
-
-                          <p className="text-xs text-gray-500">
-                            @{username}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  }
-                )
-              )}
-            </div>
-          </div>
-        </div>
+      {showLikeModal && (
+        <LikeListModal
+          likes={likeList}
+          loading={likeListLoading}
+          onClose={() =>
+            setShowLikeModal(false)
+          }
+        />
       )}
     </div>
   );
