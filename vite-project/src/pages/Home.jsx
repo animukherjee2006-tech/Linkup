@@ -28,6 +28,12 @@ function Home() {
   const [likeListLoading, setLikeListLoading] = useState(false);
 
   // --------------------------------------------------
+  // PHOTO VIEWER
+  // --------------------------------------------------
+
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+
+  // --------------------------------------------------
   // AXIOS CONFIG
   // --------------------------------------------------
 
@@ -616,17 +622,24 @@ function Home() {
                   {/* POST IMAGE */}
 
                   {post.mediaurl && (
-                    <div className="bg-gray-100 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedPhoto(post.mediaurl)
+                      }
+                      className="block w-full bg-gray-100 overflow-hidden cursor-zoom-in focus:outline-none"
+                      aria-label="Open photo"
+                    >
                       <img
                         src={post.mediaurl}
                         alt={
                           post.caption ||
                           "Post"
                         }
-                        className="w-full max-h-[620px] object-cover"
+                        className="w-full max-h-[620px] object-cover transition-transform duration-300 hover:scale-[1.01]"
                         loading="lazy"
                       />
-                    </div>
+                    </button>
                   )}
 
                   {/* POST CONTENT */}
@@ -738,10 +751,52 @@ function Home() {
             })}
           </div>
         )}
-
       </div>
 
-      {/* LIKE MODAL */}
+      {/* ==================================================
+          PHOTO VIEWER MODAL
+          ================================================== */}
+
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+          onClick={() => setSelectedPhoto(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Photo viewer"
+        >
+
+          {/* CLOSE BUTTON */}
+
+          <button
+            type="button"
+            onClick={() => setSelectedPhoto(null)}
+            className="absolute top-4 right-4 z-10 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-2xl transition"
+            aria-label="Close photo"
+          >
+            ×
+          </button>
+
+          {/* LARGE PHOTO */}
+
+          <div
+            className="relative w-full max-w-[500px] h-[min(90vh,850px)] flex items-center justify-center"
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+            <img
+              src={selectedPhoto}
+              alt="Full size post"
+              className="max-h-full max-w-full w-auto h-auto object-contain rounded-xl shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================
+          LIKE MODAL
+          ================================================== */}
 
       {showLikeModal && (
         <LikeListModal
