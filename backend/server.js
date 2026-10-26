@@ -6,10 +6,8 @@ const app= require('./src/app')
 const connectdb= require('./src/db/db')
 const {Server}= require('socket.io')
 const chatsockets= require('./src/sockets/chatSockets')
-const connectRedis = require('./src/db/redis')
 
 connectdb()
-connectRedis()
 
 const server= http.createServer(app)
 const allowedOrigins = [
