@@ -144,10 +144,12 @@ const verifyOTP = async (req, res) => {
     }
 };
 
-// LOGIN - STEP 1: VALIDATE CREDENTIALS & SEND OTP
+// LOGIN - DIRECT LOGIN (NO OTP REQUIRED)
+// LOGIN - DIRECT LOGIN (NO OTP REQUIRED)
 const loginuser = async (req, res) => {
     try {
-        const identifier = (req.body.email || req.body.username || req.body.phone || '').trim();
+        // Frontend se 'username' field mein email, username, ya phone kuch bhi aa sakta hai
+        const identifier = (req.body.username || req.body.email || req.body.phone || '').trim();
         const { password } = req.body;
 
         if (!identifier || !password) {
@@ -155,6 +157,8 @@ const loginuser = async (req, res) => {
         }
 
         const normalizedIdentifier = identifier.toLowerCase();
+
+        // User ko database mein dhoondhein (email, username, ya phone teeno se match karega)
         const existingUser = await User.findOne({
             $or: [
                 { email: normalizedIdentifier },
@@ -176,70 +180,22 @@ const loginuser = async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        const otp = String(Math.floor(100000 + Math.random() * 900000));
-        const otpKey = `otp:login:${existingUser.email}`;
-
-        await redisClient.setEx(otpKey, OTP_TTL, otp);
-
-        try {
-            await sendOTPEmail(existingUser.email, existingUser.username, otp);
-        } catch (emailError) {
-            await redisClient.del(otpKey);
-            console.error('Login OTP email error:', emailError);
-            return res.status(500).json({ message: 'Unable to send login OTP email. Please try again.' });
-        }
+        const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECREAT, { expiresIn: JWT_TTL });
+        res.cookie('token', token, cookieOptions);
 
         return res.status(200).json({
-            message: 'OTP sent to your email for login verification.',
-            email: existingUser.email
+            message: 'Login successful',
+            token,
+            user: {
+                id: existingUser._id,
+                username: existingUser.username,
+                email: existingUser.email
+            }
         });
 
     } catch (error) {
         console.error('Login error:', error);
         return res.status(500).json({ message: 'Something went wrong during login' });
-    }
-};
-
-// LOGIN - STEP 2: VERIFY LOGIN OTP
-const verifyLoginOTP = async (req, res) => {
-    try {
-        const email = (req.body.email || '').trim().toLowerCase();
-        const { otp } = req.body;
-
-        if (!email || !otp) {
-            return res.status(400).json({ message: 'Email and OTP are required' });
-        }
-
-        if (!/^\d{6}$/.test(String(otp))) {
-            return res.status(400).json({ message: 'Please enter a valid 6-digit OTP' });
-        }
-
-        const otpKey = `otp:login:${email}`;
-        const cachedOtp = await redisClient.get(otpKey);
-
-        if (!cachedOtp) {
-            return res.status(400).json({ message: 'OTP expired or session not found. Please log in again.' });
-        }
-
-        if (cachedOtp !== String(otp)) {
-            return res.status(400).json({ message: 'Incorrect OTP' });
-        }
-
-        const existingUser = await User.findOne({ email });
-        if (!existingUser) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        await redisClient.del(otpKey);
-
-        const token = jwt.sign({ id: existingUser._id }, process.env.JWT_SECREAT, { expiresIn: JWT_TTL });
-        res.cookie('token', token, cookieOptions);
-
-        return res.status(200).json({ message: 'Login successful', token });
-
-    } catch (error) {
-        console.error('Login OTP verification error:', error);
-        return res.status(500).json({ message: 'Something went wrong during login verification' });
     }
 };
 
@@ -322,7 +278,6 @@ module.exports = {
     register,
     verifyOTP,
     loginuser,
-    verifyLoginOTP,
     forgotPassword,
     resetPassword,
     logout
