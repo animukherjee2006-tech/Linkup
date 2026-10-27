@@ -1,22 +1,31 @@
+const sendOTPEmail = async (email, username, otp) => {
+    const apiKey = process.env.BREVO_API_KEY;
 
+    if (!apiKey) {
+        throw new Error('BREVO_API_KEY is missing in environment variables');
+    }
 
-const sendOTPEmail = async (email, otp) => {
     try {
         const response = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
                 'accept': 'application/json',
-                'api-key': process.env.BREVO_API_KEY,
+                'api-key': apiKey,
                 'content-type': 'application/json'
             },
             body: JSON.stringify({
                 sender: {
                     name: "Linkup",
-                    email: "animukherjee2006@gmail.com" 
+                    email: "noreply@yourdomain.com" // Apni verified Brevo sender email yahan dalein
                 },
                 to: [{ email: email }],
-                subject: "Verify your email - Linkup",
-                htmlContent: `<p>Your verification code is: <strong>${otp}</strong></p>`
+                subject: "Verification Code - Linkup",
+                htmlContent: `<div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Hello ${username || 'User'},</h2>
+                    <p>Your verification code is:</p>
+                    <h1 style="color: #2563eb; letter-spacing: 4px;">${otp}</h1>
+                    <p>This code is valid for 5 minutes.</p>
+                </div>`
             })
         });
 
@@ -33,4 +42,4 @@ const sendOTPEmail = async (email, otp) => {
     }
 };
 
-module.exports = sendOTPEmail
+module.exports = sendOTPEmail;
