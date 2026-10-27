@@ -16,7 +16,7 @@ const sendOTPEmail = async (email, username, otp) => {
             body: JSON.stringify({
                 sender: {
                     name: "Linkup",
-                    email: "noreply@yourdomain.com" // Apni verified Brevo sender email yahan dalein
+                    email: "animukherjee2006@gmail.com" // Apni verified Brevo sender email yahan dalein
                 },
                 to: [{ email: email }],
                 subject: "Verification Code - Linkup",
