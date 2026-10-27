@@ -1,4 +1,3 @@
-
 const User = require('../models/user.model');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -146,7 +145,6 @@ const register = async (req, res) => {
 // REGISTER - STEP 2: VERIFY OTP
 const verifyOTP = async (req, res) => {
     try {
-        // Accept both field names for compatibility
         const email = (
             req.body.email || req.body.Email || ''
         ).trim().toLowerCase();
@@ -187,7 +185,6 @@ const verifyOTP = async (req, res) => {
 
         const pendingUser = JSON.parse(cachedUserData);
 
-        // Recheck unique fields to prevent duplicate accounts
         const existingUser = await User.findOne({
             $or: [
                 { username: pendingUser.username },
@@ -204,7 +201,6 @@ const verifyOTP = async (req, res) => {
             });
         }
 
-        // Create and save the verified account
         const newUser = new User({
             username: pendingUser.username,
             firstname: pendingUser.firstname,
@@ -217,7 +213,6 @@ const verifyOTP = async (req, res) => {
 
         await newUser.save();
 
-        // Delete temporary registration data after successful save
         await redisClient.del([otpKey, userKey]);
 
         const token = jwt.sign(
@@ -236,7 +231,6 @@ const verifyOTP = async (req, res) => {
     } catch (error) {
         console.error('OTP verification error:', error);
 
-        // Duplicate-key protection for concurrent registration requests
         if (error.code === 11000) {
             return res.status(409).json({
                 message: 'Email, username, or phone number is already registered'
@@ -250,7 +244,7 @@ const verifyOTP = async (req, res) => {
 };
 
 
-// LOGIN
+// LOGIN - STEP 1: VALIDATE CREDENTIALS & SEND OTP
 const loginuser = async (req, res) => {
     try {
         const identifier = (
@@ -301,6 +295,81 @@ const loginuser = async (req, res) => {
             });
         }
 
+        // Generate OTP for login verification
+        const otp = String(
+            Math.floor(100000 + Math.random() * 900000)
+        );
+        const otpKey = `otp:login:${existingUser.email}`;
+
+        await redisClient.setEx(otpKey, OTP_TTL, otp);
+
+        try {
+            await sendOTPEmail(existingUser.email, existingUser.username, otp);
+        } catch (emailError) {
+            await redisClient.del(otpKey);
+            console.error('Login OTP email error:', emailError);
+            return res.status(500).json({
+                message: 'Unable to send login OTP email. Please try again.'
+            });
+        }
+
+        return res.status(200).json({
+            message: 'OTP sent to your email for login verification.',
+            email: existingUser.email
+        });
+
+    } catch (error) {
+        console.error('Login error:', error);
+
+        return res.status(500).json({
+            message: 'Something went wrong during login'
+        });
+    }
+};
+
+
+// LOGIN - STEP 2: VERIFY LOGIN OTP
+const verifyLoginOTP = async (req, res) => {
+    try {
+        const email = (req.body.email || '').trim().toLowerCase();
+        const { otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({
+                message: 'Email and OTP are required'
+            });
+        }
+
+        if (!/^\d{6}$/.test(String(otp))) {
+            return res.status(400).json({
+                message: 'Please enter a valid 6-digit OTP'
+            });
+        }
+
+        const otpKey = `otp:login:${email}`;
+        const cachedOtp = await redisClient.get(otpKey);
+
+        if (!cachedOtp) {
+            return res.status(400).json({
+                message: 'OTP expired or login session not found. Please log in again.'
+            });
+        }
+
+        if (cachedOtp !== String(otp)) {
+            return res.status(400).json({
+                message: 'Incorrect OTP'
+            });
+        }
+
+        const existingUser = await User.findOne({ email });
+        if (!existingUser) {
+            return res.status(404).json({
+                message: 'User not found'
+            });
+        }
+
+        await redisClient.del(otpKey);
+
         const token = jwt.sign(
             { id: existingUser._id },
             process.env.JWT_SECREAT,
@@ -315,10 +384,129 @@ const loginuser = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Login error:', error);
+        console.error('Login OTP verification error:', error);
 
         return res.status(500).json({
-            message: 'Something went wrong during login'
+            message: 'Something went wrong during login verification'
+        });
+    }
+};
+
+
+// FORGOT PASSWORD - STEP 1: SEND OTP
+const forgotPassword = async (req, res) => {
+    try {
+        const email = req.body.email?.trim().toLowerCase();
+
+        if (!email) {
+            return res.status(400).json({
+                message: 'Email is required'
+            });
+        }
+
+        if (!/^\S+@\S+\.\S+$/.test(email)) {
+            return res.status(400).json({
+                message: 'Please enter a valid email address'
+            });
+        }
+
+        const existingUser = await User.findOne({ email });
+
+        if (!existingUser) {
+            return res.status(404).json({
+                message: 'User not found with this email address'
+            });
+        }
+
+        const otp = String(
+            Math.floor(100000 + Math.random() * 900000)
+        );
+        const otpKey = `otp:forgot:${email}`;
+
+        await redisClient.setEx(otpKey, OTP_TTL, otp);
+
+        try {
+            await sendOTPEmail(email, existingUser.username, otp);
+        } catch (emailError) {
+            await redisClient.del(otpKey);
+            console.error('Forgot password email error:', emailError);
+
+            return res.status(500).json({
+                message: 'Unable to send password reset OTP email. Please try again.'
+            });
+        }
+
+        return res.status(200).json({
+            message: 'Password reset OTP sent to your email.'
+        });
+
+    } catch (error) {
+        console.error('Forgot password error:', error);
+
+        return res.status(500).json({
+            message: 'Something went wrong during forgot password'
+        });
+    }
+};
+
+
+// FORGOT PASSWORD - STEP 2: RESET PASSWORD WITH OTP
+const resetPassword = async (req, res) => {
+    try {
+        const email = req.body.email?.trim().toLowerCase();
+        const { otp, newPassword } = req.body;
+
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({
+                message: 'Email, OTP, and new password are required'
+            });
+        }
+
+        if (!/^\d{6}$/.test(String(otp))) {
+            return res.status(400).json({
+                message: 'Please enter a valid 6-digit OTP'
+            });
+        }
+
+        if (newPassword.length < 8) {
+            return res.status(400).json({
+                message: 'Password must be at least 8 characters long'
+            });
+        }
+
+        const otpKey = `otp:forgot:${email}`;
+        const cachedOtp = await redisClient.get(otpKey);
+
+        if (!cachedOtp) {
+            return res.status(400).json({
+                message: 'OTP expired or not found. Please request a new password reset.'
+            });
+        }
+
+        if (cachedOtp !== String(otp)) {
+            return res.status(400).json({
+                message: 'Incorrect OTP'
+            });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await User.findOneAndUpdate(
+            { email },
+            { password: hashedPassword }
+        );
+
+        await redisClient.del(otpKey);
+
+        return res.status(200).json({
+            message: 'Password reset successful. Please log in with your new password.'
+        });
+
+    } catch (error) {
+        console.error('Reset password error:', error);
+
+        return res.status(500).json({
+            message: 'Something went wrong during password reset'
         });
     }
 };
@@ -349,7 +537,10 @@ const logout = async (req, res) => {
 
 module.exports = {
     register,
+    verifyOTP,
     loginuser,
-    logout,
-    verifyOTP
+    verifyLoginOTP,
+    forgotPassword,
+    resetPassword,
+    logout
 };

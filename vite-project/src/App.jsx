@@ -16,6 +16,7 @@ import Settings from './pages/Settings';
 import CreatePost from './pages/Createpost';
 import ChatPage from "./pages/ChatPage";
 import OtherUserProfile from './pages/OtherUserProfile';
+import ForgotPassword from './components/ForgotPassword';
 
 
 
@@ -29,7 +30,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
-
+        <Route path='/forgot-password' element={<ForgotPassword />} />
         {/* Protected Dashboard Routes */}
         <Route element={<Proctedroute />}>
           <Route path="/mainlayout" element={<Mainlayout />}>
